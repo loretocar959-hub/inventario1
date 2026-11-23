@@ -1,0 +1,602 @@
+<!DOCTYPE html
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Inventario Azul Neón</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuente Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+         :root {
+            --bg-dark: #0a0f1d;
+            --neon-cyan: #00d2ff;
+            --neon-sky: #38bdf8;
+        }
+        
+        * {
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(circle at 15% 15%, rgba(0, 210, 255, 0.08) 0%, transparent 45%), radial-gradient(circle at 85% 85%, rgba(56, 189, 248, 0.08) 0%, transparent 45%);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        /* Tarjetas Glassmorphism */
+        
+        .glass-card {
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(56, 189, 248, 0.22);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+        }
+        /* Inputs con borde Azul Neón */
+        
+        .neon-input {
+            background-color: rgba(10, 15, 29, 0.9);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            color: #ffffff;
+            transition: all 0.2s ease;
+        }
+        
+        .neon-input:focus {
+            outline: none;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 14px rgba(0, 210, 255, 0.35);
+        }
+        /* Botón Principal Azul Neón */
+        
+        .btn-neon-cyan {
+            background: linear-gradient(135deg, #00d2ff 0%, #38bdf8 100%);
+            color: #060a14;
+            font-weight: 700;
+            box-shadow: 0 0 18px rgba(0, 210, 255, 0.38);
+            transition: all 0.2s ease;
+        }
+        
+        .btn-neon-cyan:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 26px rgba(0, 210, 255, 0.65);
+        }
+        
+        .btn-neon-cyan:active {
+            transform: scale(0.98);
+        }
+        /* Estado Rojo Brillante (< 5 productos) */
+        
+        .btn-stock-low {
+            background: linear-gradient(135deg, #ff1744 0%, #dc2626 100%);
+            color: #ffffff;
+            border: 1px solid #ff8a80;
+            box-shadow: 0 0 16px rgba(255, 23, 68, 0.6);
+            animation: pulseRed 2s infinite;
+        }
+        
+        @keyframes pulseRed {
+            0%,
+            100% {
+                box-shadow: 0 0 12px rgba(255, 23, 68, 0.55);
+            }
+            50% {
+                box-shadow: 0 0 22px rgba(255, 23, 68, 0.9);
+            }
+        }
+        /* Estado Verde Brillante (>= 5 productos) */
+        
+        .btn-stock-ok {
+            background: linear-gradient(135deg, #00e676 0%, #10b981 100%);
+            color: #052e16;
+            border: 1px solid #69f0ae;
+            box-shadow: 0 0 14px rgba(0, 230, 118, 0.45);
+        }
+        /* Ocultar flechas nativas de inputs numéricos compactos */
+        
+        .no-spin::-webkit-inner-spin-button,
+        .no-spin::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .no-spin {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+
+<body class="p-4 sm:p-6 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+
+        <!-- Encabezado y Botón Destacado "Guardar productos" -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                    <span class="text-3xl">📦</span>
+                    <span>Inventario de <span style="color: #00d2ff;">Productos</span></span>
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-400 mt-1">
+                    Control rápido de existencias con guardado persistente en tu navegador
+                </p>
+            </div>
+
+            <!-- Botón destacado Guardar productos + Indicador de estado -->
+            <div class="flex flex-col sm:items-end gap-1.5 w-full sm:w-auto">
+                <button type="button" id="manualSaveBtn" onclick="manualSaveProducts()" class="btn-neon-cyan w-full sm:w-auto px-5 py-3 rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer">
+          <span>💾</span>
+          <span>Guardar productos</span>
+        </button>
+                <div id="saveStatusIndicator" class="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="saveStatusText">Todos los productos están guardados</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 5. Tarjetas de Resumen Superior -->
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6" aria-label="Resumen de inventario">
+            <div class="glass-card p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-medium text-slate-400 block">Total de productos</span>
+                    <span id="summaryTotalProducts" class="text-2xl font-extrabold text-white mt-1 block">0</span>
+                </div>
+                <span class="text-2xl bg-sky-500/15 border border-sky-400/30 w-11 h-11 rounded-xl flex items-center justify-center">📋</span>
+            </div>
+
+            <div class="glass-card p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-medium text-slate-400 block">Unidades en stock</span>
+                    <span id="summaryTotalUnits" class="text-2xl font-extrabold mt-1 block" style="color: #38bdf8;">0</span>
+                </div>
+                <span class="text-2xl bg-cyan-500/15 border border-cyan-400/30 w-11 h-11 rounded-xl flex items-center justify-center">📊</span>
+            </div>
+
+            <div class="glass-card p-4 rounded-2xl flex items-center justify-between border-rose-500/40">
+                <div>
+                    <span class="text-xs font-medium text-slate-400 block">Alertas en rojo (&lt; 5)</span>
+                    <span id="summaryLowAlerts" class="text-2xl font-extrabold text-rose-500 mt-1 block">0</span>
+                </div>
+                <span class="text-2xl bg-rose-500/15 border border-rose-500/40 w-11 h-11 rounded-xl flex items-center justify-center">🚨</span>
+            </div>
+        </section>
+
+        <!-- 1. Barra para Agregar Productos -->
+        <section class="glass-card p-5 rounded-2xl mb-6" aria-label="Agregar producto">
+            <form id="addProductForm" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <div class="sm:col-span-6">
+                    <label for="productNameInput" class="block text-xs font-semibold uppercase tracking-wider text-sky-300 mb-1.5">
+            Nombre del producto
+          </label>
+                    <input type="text" id="productNameInput" placeholder="Ej. Laptop Dell XPS, Mouse Inalámbrico..." required class="neon-input w-full px-4 py-2.5 rounded-xl text-sm">
+                </div>
+
+                <div class="sm:col-span-3">
+                    <label for="productQtyInput" class="block text-xs font-semibold uppercase tracking-wider text-sky-300 mb-1.5">
+            Cantidad del producto
+          </label>
+                    <input type="number" id="productQtyInput" min="0" value="10" required class="neon-input w-full px-4 py-2.5 rounded-xl text-sm text-center font-semibold">
+                </div>
+
+                <div class="sm:col-span-3">
+                    <button type="submit" class="btn-neon-cyan w-full px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer">
+            <span>➕</span>
+            <span>Agregar producto</span>
+          </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- 2. Barra de Búsqueda en Tiempo Real -->
+        <section class="mb-5 flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+            <div class="relative flex-1">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-sky-400 pointer-events-none">🔍</span>
+                <input type="text" id="searchInput" placeholder="Buscar producto por nombre en tiempo real..." class="neon-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm">
+            </div>
+        </section>
+
+        <!-- Notificación Visual (Toast) -->
+        <div id="toastBanner" class="hidden mb-4 px-4 py-3 rounded-xl text-sm font-medium border transition-all"></div>
+
+        <!-- 4. Tabla / Lista de Productos -->
+        <section class="glass-card rounded-2xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-sky-500/25 bg-slate-950/70 text-xs uppercase tracking-wider text-sky-300">
+                            <th class="py-4 px-5">Producto</th>
+                            <th class="py-4 px-4 text-center">Cantidad y Ajuste Rápido</th>
+                            <th class="py-4 px-4 text-center">Estado de Stock</th>
+                            <th class="py-4 px-5 text-right">Eliminar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody" class="divide-y divide-slate-800/80 text-sm">
+                        <!-- Filas generadas dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mensaje cuando no hay resultados o inventario vacío -->
+            <div id="emptyMessage" class="hidden py-12 px-4 text-center">
+                <div class="text-4xl mb-2">📭</div>
+                <h3 class="text-base font-semibold text-slate-200">No hay productos para mostrar</h3>
+                <p class="text-xs text-slate-400 mt-1">Agrega un producto nuevo arriba o ajusta tu búsqueda.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'inventario_azul_neon_productos_v1';
+
+        // Productos de ejemplo iniciales (solo si localStorage nunca ha sido inicializado)
+        const DEFAULT_PRODUCTS = [{
+            id: 1,
+            name: 'Monitor Curvo 27" 165Hz',
+            quantity: 12,
+            subStep: 1,
+            addStep: 1
+        }, {
+            id: 2,
+            name: 'Teclado Mecánico RGB',
+            quantity: 3,
+            subStep: 1,
+            addStep: 1
+        }, {
+            id: 3,
+            name: 'Mouse Gamer Inalámbrico',
+            quantity: 8,
+            subStep: 1,
+            addStep: 1
+        }, {
+            id: 4,
+            name: 'Disco SSD NVMe 1TB',
+            quantity: 2,
+            subStep: 1,
+            addStep: 1
+        }, {
+            id: 5,
+            name: 'Auriculares Estudio Pro',
+            quantity: 6,
+            subStep: 1,
+            addStep: 1
+        }];
+
+        /**
+         * Carga los productos desde localStorage o precarga ejemplos la primera vez
+         */
+        function loadProducts() {
+            const rawData = localStorage.getItem(STORAGE_KEY);
+            if (rawData === null) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PRODUCTS));
+                return [...DEFAULT_PRODUCTS];
+            }
+            try {
+                const parsed = JSON.parse(rawData);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                console.error('Error al leer localStorage:', error);
+                return [];
+            }
+        }
+
+        let products = loadProducts();
+        let pendingDeleteId = null;
+        let deleteResetTimer = null;
+
+        const productTableBody = document.getElementById('productTableBody');
+        const emptyMessage = document.getElementById('emptyMessage');
+        const searchInput = document.getElementById('searchInput');
+        const addProductForm = document.getElementById('addProductForm');
+
+        /**
+         * Guarda el arreglo actual en localStorage y actualiza el indicador visual
+         */
+        function persistToStorage(showToast = false) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+            updateSummaryCards();
+
+            const statusText = document.getElementById('saveStatusText');
+            const now = new Date();
+            const hour = now.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            statusText.textContent = `Guardado en navegador (${hour})`;
+
+            if (showToast) {
+                showToastMessage('💾 ¡Productos guardados correctamente! Si sales y vuelves a entrar seguirán aquí.', 'success');
+            }
+        }
+
+        /**
+         * Acción explícita del botón destacado "Guardar productos"
+         */
+        function manualSaveProducts() {
+            persistToStorage(true);
+        }
+
+        /**
+         * Actualiza las tarjetas superiores de resumen
+         */
+        function updateSummaryCards() {
+            const totalProducts = products.length;
+            const totalUnits = products.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+            const lowAlerts = products.filter(item => item.quantity < 5).length;
+
+            document.getElementById('summaryTotalProducts').textContent = totalProducts;
+            document.getElementById('summaryTotalUnits').textContent = totalUnits;
+            document.getElementById('summaryLowAlerts').textContent = lowAlerts;
+        }
+
+        /**
+         * Muestra notificación temporal en pantalla
+         */
+        function showToastMessage(message, type = 'info') {
+            const banner = document.getElementById('toastBanner');
+            banner.textContent = message;
+            banner.className = 'mb-4 px-4 py-3 rounded-xl text-sm font-medium border transition-all ';
+
+            if (type === 'danger') {
+                banner.className += 'bg-rose-950/85 border-rose-500 text-rose-200';
+            } else if (type === 'success') {
+                banner.className += 'bg-emerald-950/85 border-emerald-500 text-emerald-200';
+            } else {
+                banner.className += 'bg-sky-950/85 border-sky-400 text-sky-200';
+            }
+
+            banner.classList.remove('hidden');
+            clearTimeout(banner._hideTimer);
+            banner._hideTimer = setTimeout(() => {
+                banner.classList.add('hidden');
+            }, 3200);
+        }
+
+        /**
+         * Renderiza la tabla filtrando por el texto de búsqueda en tiempo real
+         */
+        function renderTable() {
+            const query = searchInput.value.toLowerCase().trim();
+            const filteredProducts = products.filter(item =>
+                item.name.toLowerCase().includes(query)
+            );
+
+            updateSummaryCards();
+
+            if (filteredProducts.length === 0) {
+                productTableBody.innerHTML = '';
+                emptyMessage.classList.remove('hidden');
+                return;
+            }
+
+            emptyMessage.classList.add('hidden');
+
+            productTableBody.innerHTML = filteredProducts.map(item => {
+                const isLow = item.quantity < 5;
+                const subStep = item.subStep || 1;
+                const addStep = item.addStep || 1;
+                const isConfirmingDelete = pendingDeleteId === item.id;
+
+                // Botón indicador ROJO (< 5) o VERDE (>= 5)
+                const stockStatusButton = isLow ?
+                    `<button type="button" onclick="alertStockStatus('${escapeHtml(item.name)}', ${item.quantity})" class="btn-stock-low px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wide cursor-pointer">
+               Stock Bajo
+             </button>` :
+                    `<button type="button" onclick="alertStockStatus('${escapeHtml(item.name)}', ${item.quantity})" class="btn-stock-ok px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wide cursor-pointer">
+               Stock Disponible
+             </button>`;
+
+                // Botón eliminar con emoji de bote de basura 🗑️ y confirmación rápida
+                const deleteButtonHtml = isConfirmingDelete ?
+                    `<button type="button" onclick="confirmDeleteProduct(${item.id})" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-lg transition cursor-pointer" title="Confirmar eliminación">
+               🗑️ ¿Confirmar?
+             </button>` :
+                    `<button type="button" onclick="requestDeleteProduct(${item.id})" class="bg-slate-800/80 hover:bg-rose-950/80 border border-slate-700 hover:border-rose-500/60 px-3 py-1.5 rounded-xl text-base transition cursor-pointer" title="Eliminar producto">
+               🗑️
+             </button>`;
+
+                return `
+          <tr class="hover:bg-sky-950/20 transition-colors">
+            <td class="py-4 px-5 font-semibold text-white">
+              ${escapeHtml(item.name)}
+            </td>
+            <td class="py-4 px-4">
+              <div class="flex items-center justify-center gap-2">
+                <!-- Cuadro numérico + Botón Restar (-) -->
+                <div class="flex items-center bg-slate-900 border border-rose-500/40 rounded-lg overflow-hidden">
+                  <input 
+                    type="number" 
+                    id="subInput-${item.id}" 
+                    min="1" 
+                    value="${subStep}" 
+                    onchange="saveStepValue(${item.id}, 'subStep', this.value)"
+                    class="no-spin w-11 h-8 bg-transparent text-center text-xs font-bold text-rose-300 focus:outline-none"
+                    title="Cantidad rápida a restar"
+                    aria-label="Cantidad rápida a restar"
+                  >
+                  <button 
+                    type="button" 
+                    onclick="changeQuantity(${item.id}, -1)" 
+                    class="w-8 h-8 bg-rose-950/80 hover:bg-rose-600 text-rose-200 hover:text-white font-extrabold flex items-center justify-center transition cursor-pointer border-l border-rose-500/40"
+                    title="Restar cantidad"
+                  >
+                    −
+                  </button>
+                </div>
+
+                <!-- Cantidad Actual -->
+                <span class="min-w-[2.75rem] text-center text-base font-extrabold ${isLow ? 'text-rose-400' : 'text-sky-300'}">
+                  ${item.quantity}
+                </span>
+
+                <!-- Botón Sumar (+) + Cuadro numérico -->
+                <div class="flex items-center bg-slate-900 border border-sky-400/40 rounded-lg overflow-hidden">
+                  <button 
+                    type="button" 
+                    onclick="changeQuantity(${item.id}, 1)" 
+                    class="w-8 h-8 bg-sky-950/80 hover:bg-sky-500 text-sky-200 hover:text-slate-950 font-extrabold flex items-center justify-center transition cursor-pointer border-r border-sky-400/40"
+                    title="Sumar cantidad"
+                  >
+                    +
+                  </button>
+                  <input 
+                    type="number" 
+                    id="addInput-${item.id}" 
+                    min="1" 
+                    value="${addStep}" 
+                    onchange="saveStepValue(${item.id}, 'addStep', this.value)"
+                    class="no-spin w-11 h-8 bg-transparent text-center text-xs font-bold text-sky-300 focus:outline-none"
+                    title="Cantidad rápida a sumar"
+                    aria-label="Cantidad rápida a sumar"
+                  >
+                </div>
+              </div>
+            </td>
+            <td class="py-4 px-4 text-center">
+              ${stockStatusButton}
+            </td>
+            <td class="py-4 px-5 text-right">
+              ${deleteButtonHtml}
+            </td>
+          </tr>
+        `;
+            }).join('');
+        }
+
+        /**
+         * Guarda el paso numérico rápido en localStorage
+         */
+        function saveStepValue(id, field, value) {
+            const product = products.find(p => p.id === id);
+            if (!product) return;
+            const num = parseInt(value, 10);
+            product[field] = (!isNaN(num) && num >= 1) ? num : 1;
+            persistToStorage(false);
+        }
+
+        /**
+         * Suma o resta usando el valor del cuadro numérico lateral
+         */
+        function changeQuantity(id, direction) {
+            const product = products.find(p => p.id === id);
+            if (!product) return;
+
+            const inputEl = document.getElementById(direction > 0 ? `addInput-${id}` : `subInput-${id}`);
+            const parsed = inputEl ? parseInt(inputEl.value, 10) : 1;
+            const step = (!isNaN(parsed) && parsed >= 1) ? parsed : 1;
+
+            if (direction > 0) {
+                product.addStep = step;
+            } else {
+                product.subStep = step;
+            }
+
+            product.quantity = Math.max(0, product.quantity + (direction * step));
+            persistToStorage(false);
+            renderTable();
+
+            if (product.quantity < 5 && direction < 0) {
+                showToastMessage(`🚨 Alerta: "${product.name}" tiene menos de 5 unidades (${product.quantity} en stock).`, 'danger');
+            }
+        }
+
+        /**
+         * Agrega un nuevo producto desde la barra superior
+         */
+        addProductForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nameInput = document.getElementById('productNameInput');
+            const qtyInput = document.getElementById('productQtyInput');
+
+            const name = nameInput.value.trim();
+            const quantity = parseInt(qtyInput.value, 10);
+
+            if (!name || isNaN(quantity) || quantity < 0) return;
+
+            const existing = products.find(p => p.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                existing.quantity += quantity;
+                showToastMessage(`➕ Se sumaron ${quantity} unidades a "${existing.name}".`, 'info');
+            } else {
+                products.unshift({
+                    id: Date.now(),
+                    name,
+                    quantity,
+                    subStep: 1,
+                    addStep: 1
+                });
+                showToastMessage(`✅ Producto "${name}" agregado a la lista.`, 'success');
+            }
+
+            persistToStorage(false);
+            renderTable();
+            nameInput.value = '';
+            qtyInput.value = '10';
+            nameInput.focus();
+        });
+
+        /**
+         * Primer clic en 🗑️: solicita confirmación rápida sin bloquear con alert/confirm
+         */
+        function requestDeleteProduct(id) {
+            pendingDeleteId = id;
+            renderTable();
+            clearTimeout(deleteResetTimer);
+            deleteResetTimer = setTimeout(() => {
+                pendingDeleteId = null;
+                renderTable();
+            }, 3500);
+        }
+
+        /**
+         * Segundo clic: elimina definitivamente el producto y guarda en localStorage
+         */
+        function confirmDeleteProduct(id) {
+            const target = products.find(p => p.id === id);
+            products = products.filter(p => p.id !== id);
+            pendingDeleteId = null;
+            clearTimeout(deleteResetTimer);
+            persistToStorage(false);
+            renderTable();
+            if (target) {
+                showToastMessage(`🗑️ Producto "${target.name}" eliminado permanentemente.`, 'danger');
+            }
+        }
+
+        /**
+         * Muestra información al pulsar el botón rojo o verde de estado
+         */
+        function alertStockStatus(name, quantity) {
+            if (quantity < 5) {
+                showToastMessage(`🚨 Stock Bajo: "${name}" solo tiene ${quantity} unidades (menos de 5).`, 'danger');
+            } else {
+                showToastMessage(`✅ Stock Disponible: "${name}" cuenta con ${quantity} unidades.`, 'success');
+            }
+        }
+
+        /**
+         * Escapa HTML para seguridad
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Búsqueda instantánea mientras se escribe
+        searchInput.addEventListener('input', renderTable);
+
+        // Renderizado inicial
+        renderTable();
+    </script>
+</body>
+
+</html>
